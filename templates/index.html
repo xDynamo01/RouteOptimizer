@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RouteOptimizer - Sistema de Rotas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body class="light-mode">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fas fa-route"></i>
+            <span>RouteOptimizer</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <ul>
+                <li><a href="#" class="nav-link active" data-section="dashboard"><i class="fas fa-chart-pie"></i>
+                        Dashboard</a></li>
+                <li><a href="#" class="nav-link" data-section="mapa"><i class="fas fa-map-marked-alt"></i> Mapa</a></li>
+                <li><a href="#" class="nav-link" data-section="veiculos"><i class="fas fa-truck"></i> Veículos</a></li>
+                <li><a href="#" class="nav-link" data-section="entregas"><i class="fas fa-package"></i> Entregas</a>
+                </li>
+                <li><a href="#" class="nav-link" data-section="configuracoes"><i class="fas fa-cog"></i>
+                        Configurações</a></li>
+            </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button id="themeToggle" class="theme-toggle">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <div class="breadcrumb">
+                    <span id="current-section">Dashboard</span>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <div class="time-display">
+                    <i class="fas fa-clock"></i>
+                    <span id="current-time">{{ current_time }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="section active">
+            <div class="section-header">
+                <h1>Dashboard</h1>
+                <p>Visão geral do sistema de entregas</p>
+            </div>
+
+            <div class="stats-grid" id="stats-grid">
+                <!-- Será carregado via JavaScript -->
+            </div>
+
+            <div class="card">
+                <h3>Desempenho Semanal</h3>
+                <canvas id="mileageChart" height="100"></canvas>
+            </div>
+        </div>
+
+        <!-- Seção do Mapa -->
+        <div id="mapa-section" class="section">
+            <div class="section-header">
+                <h1>Mapa de Rotas</h1>
+                <p>Visualize e calcule rotas otimizadas</p>
+            </div>
+
+            <div class="card">
+                <div class="map-controls">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Endereço de Origem:</label>
+                            <input type="text" id="originAddress" class="form-control"
+                                placeholder="Digite o endereço de origem">
+                        </div>
+                        <div class="form-group">
+                            <label>Endereço de Destino:</label>
+                            <input type="text" id="destAddress" class="form-control"
+                                placeholder="Digite o endereço de destino">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="calculateRoute()">
+                        <i class="fas fa-route"></i> Calcular Rota
+                    </button>
+                </div>
+
+                <div id="map" style="height: 500px; width: 100%; margin-top: 20px; border-radius: 8px;"></div>
+
+                <div id="routeResults" class="route-results" style="display: none; margin-top: 20px;">
+                    <h3>Resultado da Rota</h3>
+                    <div class="cost-summary">
+                        <div class="cost-item">
+                            <span>Distância:</span>
+                            <span id="routeDistance">-</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>Tempo Estimado:</span>
+                            <span id="routeDuration">-</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>Custo Combustível:</span>
+                            <span id="routeFuelCost">-</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>Custo Funcionário:</span>
+                            <span id="routeEmployeeCost">-</span>
+                        </div>
+                        <div class="cost-item total">
+                            <span>Custo Total:</span>
+                            <span id="routeTotalCost">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de Veículos -->
+        <div id="veiculos-section" class="section">
+            <div class="section-header">
+                <h1>Gerenciar Veículos</h1>
+                <button class="btn btn-primary" onclick="showVehicleModal()">
+                    <i class="fas fa-plus"></i> Novo Veículo
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table id="vehiclesTable">
+                        <thead>
+                            <tr>
+                                <th>Placa</th>
+                                <th>Tipo</th>
+                                <th>Capacidade</th>
+                                <th>Consumo</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehiclesList">
+                            <!-- Lista de veículos -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de Entregas -->
+        <div id="entregas-section" class="section">
+            <div class="section-header">
+                <h1>Gerenciar Entregas</h1>
+                <button class="btn btn-primary" onclick="showDeliveryModal()">
+                    <i class="fas fa-plus"></i> Nova Entrega
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table id="deliveriesTable">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Endereço</th>
+                                <th>Peso</th>
+                                <th>Prazo</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deliveriesList">
+                            <!-- Lista de entregas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de Configurações -->
+        <div id="configuracoes-section" class="section">
+            <div class="section-header">
+                <h1>Configurações</h1>
+            </div>
+
+            <div class="card">
+                <div class="form-group">
+                    <label>Preço do Combustível (R$/L):</label>
+                    <input type="number" id="preco_combustivel" step="0.01" class="form-control" value="5.80">
+                </div>
+                <div class="form-group">
+                    <label>Custo Hora do Funcionário (R$):</label>
+                    <input type="number" id="custo_hora_funcionario" step="0.01" class="form-control" value="25.00">
+                </div>
+                <button class="btn btn-primary" onclick="saveSettings()">
+                    <i class="fas fa-save"></i> Salvar Configurações
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal para Veículos -->
+        <div id="vehicleModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="vehicleModalTitle">Adicionar Veículo</h3>
+                    <span class="close" onclick="hideVehicleModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="vehicleForm" onsubmit="saveVehicle(event)">
+                        <input type="hidden" id="vehicleId">
+                        <div class="form-group">
+                            <label>Placa *</label>
+                            <input type="text" id="placa" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="tipo" class="form-control" required>
+                                <option value="moto">Moto</option>
+                                <option value="van">Van</option>
+                                <option value="caminhao">Caminhão</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Capacidade (kg) *</label>
+                            <input type="number" id="capacidade" step="0.1" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Consumo (km/l) *</label>
+                            <input type="number" id="consumo" step="0.1" class="form-control" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                            <button type="button" class="btn btn-secondary"
+                                onclick="hideVehicleModal()">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Entregas -->
+        <div id="deliveryModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="deliveryModalTitle">Adicionar Entrega</h3>
+                    <span class="close" onclick="hideDeliveryModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="deliveryForm" onsubmit="saveDelivery(event)">
+                        <input type="hidden" id="deliveryId">
+                        <div class="form-group">
+                            <label>Cliente *</label>
+                            <input type="text" id="cliente" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Endereço *</label>
+                            <input type="text" id="endereco" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Peso (kg) *</label>
+                            <input type="number" id="peso" step="0.1" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Prazo *</label>
+                            <input type="datetime-local" id="prazo" class="form-control" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                            <button type="button" class="btn btn-secondary"
+                                onclick="hideDeliveryModal()">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notificação -->
+        <div id="notification" class="notification hidden">
+            <span id="notificationMessage"></span>
+            <button onclick="hideNotification()">&times;</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
